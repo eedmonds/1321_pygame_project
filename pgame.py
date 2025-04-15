@@ -1,6 +1,6 @@
 import pygame
 
-from Pygame_Project.Battle.battle_tut1 import panel_img
+
 
 pygame.init()
 
@@ -25,7 +25,7 @@ def draw_bg():
     screen.blit(background_img, (0,0))
 
 def draw_panel():
-    screen.blit(panel_img, (0,0))
+    screen.blit(panel_img, (0,350))
 
 #game loop
 run = True
