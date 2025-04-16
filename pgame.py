@@ -18,14 +18,29 @@ FPS = 60
 background_img = pygame.image.load('img/Background/background.png').convert_alpha()
 panel_img = pygame.image.load('img/Icons/panel.png').convert_alpha()
 
+# define fonts
+font = pygame.font.SysFont('Times New Roman', 26)
+
+#define colors
+red = (255,0,0)
+green = (0,255,0)
 # function for drawing background
+
+def draw_text(text, font, text_col, x, y):
+    img = font.render(text,True, text_col)
+    screen.blit(img,(x,y))
 
 def draw_bg():
     screen.blit(background_img, (0,0))
 
 def draw_panel():
     screen.blit(panel_img, (0, screen.get_height() - BOTTOM_PANEL))
-# Hero class
+    #show stats for Charactors
+    draw_text(f'{knight.name} HP: {knight.hp}',font, red, 100, SCREEN_HEIGHT-BOTTOM_PANEL +10)
+    for count, i in enumerate(enemy_list):
+        draw_text(f'{i.name} HP: {i.hp}', font, red, 550, (SCREEN_HEIGHT - BOTTOM_PANEL + 10) + count * 60)
+
+
 
 knight = Charactor(200, 260, 'Knight', 30,10, 3)
 bandit1 = Charactor(400, 270, 'Bandit', 20,6, 1)
@@ -47,7 +62,9 @@ while run:
     draw_bg()
     draw_panel()
     # draw fighters
+    knight.update()
     knight.draw(screen)
+    bandit1.update()
     bandit1.draw(screen)
     pygame.display.flip()
     clock.tick(FPS)
