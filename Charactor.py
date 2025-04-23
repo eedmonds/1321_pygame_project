@@ -1,6 +1,8 @@
 import pygame
 import random
 
+SCREEN_WIDTH = 800  # Needed for clamping
+
 class Character:
     def __init__(self, x, y, name, max_hp, strength, potions):
         self.name = name
@@ -63,13 +65,15 @@ class Character:
             self.action = 4
             self.rect.x += dx
 
+            # Clamp to screen width
+            self.rect.x = max(0, min(self.rect.x, SCREEN_WIDTH - self.rect.width))
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
         speed = 10
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.move(dx=-speed)
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.move(dx=speed)
         if keys[pygame.K_UP]:
             self.move(dy=-speed)

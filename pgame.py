@@ -4,7 +4,10 @@ from Charactor import Character
 from HealthBar import HealthBar
 
 pygame.init()
-
+pygame.mixer.init()
+pygame.mixer.music.load('Assets/Music/backgroundMusic.mp3')
+pygame.mixer.music.play(-1) # start the music
+current_enemy_index = 0  # Only this enemy will act
 # Game window setup
 BOTTOM_PANEL = 150
 SCREEN_WIDTH = 800
@@ -101,9 +104,8 @@ def main_menu():
 
 
 selected_class = main_menu()
-player = Character(200, 260, selected_class, 30, 10, 3)
+player = Character(200, 260, selected_class, 60, 10, 3)
 
-# Enemy waves setup
 wave = 1
 
 def create_enemies(wave):
@@ -124,6 +126,52 @@ enemy_list = create_enemies(wave)
 enemy_health_bars = create_enemy_health_bars()
 player_health = HealthBar(screen, 100, SCREEN_HEIGHT - BOTTOM_PANEL + 40, player.hp, player.max_hp, animate=True)
 
+def ask_to_use_potion():
+    healing_popup = True
+    while healing_popup:
+        screen.fill((0, 0, 0))
+        draw_text("You beat the enemies!", font, (255, 255, 255), 260, 150)
+        draw_text("Use a potion to heal 25 HP?", font, (255, 255, 255), 240, 200)
+        draw_text("Y - Yes    N - No", font, (255, 255, 255), 280, 250)
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_y:
+                    return True
+                elif event.key == pygame.K_n:
+                    return False
+
+def show_wave_complete(wave_num):
+    timer = 90  # Show for 1.5 seconds at 60 FPS
+    while timer > 0:
+        screen.fill((0, 0, 0))
+        draw_text(f"Wave {wave_num} Complete!", font, (255, 255, 0), SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 - 20)
+        pygame.display.update()
+        timer -= 1
+        clock.tick(FPS)
+
+def game_over_screen():
+    while True:
+        screen.fill((0, 0, 0))
+        draw_text("You Died!", font, (255, 0, 0), SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 - 60)
+        draw_text("Press R to Restart or Q to Quit", font, (255, 255, 255), SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2)
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    return True  # Restart
+                elif event.key == pygame.K_q:
+                    pygame.quit()
+                    exit()
+
 # Main Game Loop
 run = True
 while run:
@@ -140,6 +188,10 @@ while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
+            for event in pygame.event.get():
+                if event.type == pygame.quit() or event.type == pygame.KEYDOWN or event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    exit()
         if event.type == pygame.MOUSEBUTTONDOWN and player_turn:
             mouse_pos = pygame.mouse.get_pos()
             if attack_btn.collidepoint(mouse_pos):
@@ -153,8 +205,9 @@ while run:
                             enemy.hp = 0
                             enemy.alive = False
                             enemy.action = 3
-                            # add animation for death of bandit
                             enemy.death(enemy)
+                            if i == current_enemy_index:
+                                current_enemy_index += 1
                         enemy_health_bars[i].flash("damage")
                         floating_texts.append(
                             {'text': f'-{damage}', 'x': enemy.rect.x, 'y': enemy.rect.y - 20, 'color': (255, 0, 0),
@@ -165,13 +218,13 @@ while run:
 
             elif potion_btn.collidepoint(mouse_pos):
                 if player.potions > 0 and player.hp < player.max_hp:
-                    player.hp += 10
+                    player.hp += 20
                     if player.hp > player.max_hp:
                         player.hp = player.max_hp
                     player.potions -= 1
                     player_health.flash("heal")
                     player.idle()
-                    floating_texts.append({'text': '+10', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (0, 255, 0), 'timer': 30})
+                    floating_texts.append({'text': '+20', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (0, 255, 0), 'timer': 30})
                     player_turn = False
                     turn_transition_timer = 60
 
@@ -184,9 +237,9 @@ while run:
         enemy.draw(screen)
 
     if not player_turn and turn_transition_timer == 0:
-        for i, enemy in enumerate(enemy_list):
+        if current_enemy_index < len(enemy_list):
+            enemy = enemy_list[current_enemy_index]
             if enemy.alive:
-
                 enemy.attack(player)
                 damage = enemy.strength + random.randint(-3, 3)
                 damage = max(0, damage)
@@ -194,19 +247,50 @@ while run:
                 if player.hp <= 0:
                     player.hp = 0
                     player.alive = False
+                    pygame.display.flip()
+                    pygame.time.delay(500)
+                    if game_over_screen():
+                        selected_class = main_menu()
+                        player = Character(200, 260, selected_class, 100, 10, 3)
+                        player_health = HealthBar(screen, 100, SCREEN_HEIGHT - BOTTOM_PANEL + 40, player.hp,
+                                                  player.max_hp, animate=True)
+                        wave = 1
+                        enemy_list = create_enemies(wave)
+                        enemy_health_bars = create_enemy_health_bars()
+                        player_turn = True
+                        turn_transition_timer = 0
+                        floating_texts.clear()
+                        continue
                 player_health.flash("damage")
                 floating_texts.append(
                     {'text': f'-{damage}', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (255, 0, 0),
-                     'timer': 30})
-
-        player_turn = True
-
+                     'timer': 30}
+                )
+            player_turn = True
+            turn_transition_timer = 60
+        else:
+            player_turn = True
+            enemy_turn_index = 0
     if all(not enemy.alive for enemy in enemy_list):
-        wave += 1
-        enemy_list = create_enemies(wave)
-        enemy_health_bars = create_enemy_health_bars()
+        show_wave_complete(wave)
+
+        if player.potions > 0 and player.hp < player.max_hp:
+            if ask_to_use_potion():
+                player.hp += 50
+                if player.hp > player.max_hp:
+                    player.hp = player.max_hp
+                player.potions -= 1
+                player_health.flash("heal")
+                floating_texts.append(
+                    {'text': '+50', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (0, 255, 0), 'timer': 30})
+
+        if wave < 2:
+            wave += 1
+            enemy_list = create_enemies(wave)
+            enemy_health_bars = create_enemy_health_bars()
+            player_turn = True
 
     pygame.display.flip()
-
+#stop the music
+pygame.mixer.music.stop()
 pygame.quit()
-
