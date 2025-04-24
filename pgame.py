@@ -1,4 +1,4 @@
-import pygame
+import pygame, sys, os
 import random
 from Charactor import Character
 from HealthBar import HealthBar
@@ -34,8 +34,8 @@ player_turn = True
 turn_transition_timer = 0
 
 # UI button rectangles
-attack_btn = pygame.Rect(100, SCREEN_HEIGHT - 90, 100, 40)
-potion_btn = pygame.Rect(300, SCREEN_HEIGHT - 90, 100, 40)
+attack_btn = pygame.Rect(100, SCREEN_HEIGHT - 85, 100, 40)
+potion_btn = pygame.Rect(260, SCREEN_HEIGHT - 85, 100, 40)
 
 # Draw functions
 def draw_text(text, font, text_col, x, y):
@@ -55,13 +55,14 @@ def draw_panel():
         draw_text(f'{e.name}', font, HealthBar.red, 550, SCREEN_HEIGHT - BOTTOM_PANEL + 10 + i * 60)
         enemy_health_bars[i].draw(e.hp)
 
-    # Buttons
+    # Draw Buttons
+
     pygame.draw.rect(screen, (100, 100, 100), attack_btn)
     draw_text("Attack", font, (255, 255, 255), attack_btn.x + 10, attack_btn.y + 10)
     pygame.draw.rect(screen, (100, 100, 100), potion_btn)
     draw_text("Potion", font, (255, 255, 255), potion_btn.x + 10, potion_btn.y + 10)
 
-    # Turn indicator
+def draw_turn_indicator():# Turn indicator
     if turn_transition_timer > 0:
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))

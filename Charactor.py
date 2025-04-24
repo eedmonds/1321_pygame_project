@@ -1,3 +1,5 @@
+import os.path
+
 import pygame
 import random
 
@@ -11,49 +13,68 @@ class Character:
         self.strength = strength
         self.potions = potions
         self.alive = True
-        self.action = 0  # 0: idle, 1: attack, 2: hurt, 3: death
+        self.action = "Idle"  # 0: idle, 1: attack, 2: hurt, 3: death
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
+        self.last_update = 0
         self.load_animations()
-        self.image = self.animation_list[self.action][self.frame_index]
+        self.image = self.animation_list["Idle"][self.frame_index]  # Default to idle
         self.rect = self.image.get_rect(center=(x, y))
 
     def load_animations(self):
-        self.animation_list = []
-        for action in ['Idle', 'Attack','Death','Hurt','Run']:
-            temp_list = []
-            for i in range(8):
+        self.animation_list = {
+            "Idle": [],
+            "Attack": [],
+            "Death": [],
+            "Hurt": [],
+            "Run": []
+            , "Band_Death": []
+        }
+        for key_action, num_frames in {"Idle": 8, "Attack": 8, "Death": 8, "Hurt": 3, "Run": 8}.items():
+            for i in range(0,num_frames):
                 try:
-                    img = pygame.image.load(f'img/{self.name}/{action}/{i}.png')
+                    img = pygame.image.load(os.path.join(f"img/{self.name}/{key_action}/{i}.png"))
+
                     img = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
-                    temp_list.append(img)
-                except:
-                    break
-            self.animation_list.append(temp_list)
+                    self.animation_list[key_action].append(img)  # Append to the correct action list
+                except FileNotFoundError:
+                    print(f"Image not found: img/{self.name}/{key_action}/{i}.png")
+                    break  # Stop loading if the image is not found
 
     def update(self):
-        animation_cooldown = 100
-        self.image = self.animation_list[self.action][self.frame_index]
-        if pygame.time.get_ticks() - self.update_time > animation_cooldown:
+        if self.alive:
             self.update_time = pygame.time.get_ticks()
-            self.frame_index += 1
-            if self.frame_index >= len(self.animation_list[self.action]):
-                self.idle()
+            if self.update_time - self.last_update > 100:  # Adjust timing as needed
+                self.last_update = self.update_time
+                self.frame_index += 1
+
+                # Check if the frame index exceeds the number of frames for the current action
+                if self.frame_index >= len(self.animation_list[self.action]):
+                    if self.action == "Attack":  # Reset to idle after attack
+                        self.frame_index = 0
+                        self.action = "Idle"  # Return to idle
+                    else:
+                        self.frame_index = 0  # Reset for other actions
+
+                self.image = self.animation_list[self.action][self.frame_index]
 
     def idle(self):
-        self.action = 0
+        self.action = "Idle"
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
 
     def attack(self, target):
         if self.alive:
-            self.action = 1
+            self.action = "Attack"
             self.frame_index = 0
             self.update_time = pygame.time.get_ticks()
 
     def death(self, target):
         if self.alive == False:
-            self.action = 2
+            if self.name == "Bandit":
+                self.action = "Band_Death"
+            else:
+                self.action = "Death"
             self.frame_index =0
             self.update_time = pygame.time.get_ticks()
 
@@ -62,7 +83,9 @@ class Character:
 
     def move(self, dx=0, dy=0):
         if self.alive:
-            self.action = 4
+            self.action = "Run"
+            self.frame_index = 0
+            self.update_time = pygame.time.get_ticks()
             self.rect.x += dx
 
             # Clamp to screen width
@@ -73,12 +96,12 @@ class Character:
         speed = 10
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.move(dx=-speed)
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+        elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.move(dx=speed)
-        if keys[pygame.K_UP]:
-            self.move(dy=-speed)
-        if keys[pygame.K_DOWN]:
-            self.move(dy=speed)
+        else:
+            self.idle()
+
+
 
     def check_collision(self, other):
         return self.rect.colliderect(other.rect)
