@@ -17,6 +17,7 @@ class Character:
         self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
         self.last_update = 0
+        self.is_attacking = False
         self.load_animations()
         self.image = self.animation_list["Idle"][self.frame_index]  # Default to idle
         self.rect = self.image.get_rect(center=(x, y))
@@ -28,13 +29,12 @@ class Character:
             "Death": [],
             "Hurt": [],
             "Run": []
-            , "Band_Death": []
         }
+        # Load animations without excessive debug output
         for key_action, num_frames in {"Idle": 8, "Attack": 8, "Death": 8, "Hurt": 3, "Run": 8}.items():
             for i in range(0,num_frames):
                 try:
                     img = pygame.image.load(os.path.join(f"img/{self.name}/{key_action}/{i}.png"))
-
                     img = pygame.transform.scale(img, (img.get_width() * 3, img.get_height() * 3))
                     self.animation_list[key_action].append(img)  # Append to the correct action list
                 except FileNotFoundError:
@@ -43,9 +43,13 @@ class Character:
 
     def update(self):
         if self.alive:
-            self.update_time = pygame.time.get_ticks()
-            if self.update_time - self.last_update > 100:  # Adjust timing as needed
-                self.last_update = self.update_time
+            # Simplified animation logic
+            animation_cooldown = 150  # Slow down animations slightly for better visibility
+            current_time = pygame.time.get_ticks()
+            
+            # Update animation frame if enough time has passed
+            if current_time - self.last_update > animation_cooldown:
+                self.last_update = current_time  # Reset timer
                 self.frame_index += 1
 
                 # Check if the frame index exceeds the number of frames for the current action
@@ -53,20 +57,28 @@ class Character:
                     if self.action == "Attack":  # Reset to idle after attack
                         self.frame_index = 0
                         self.action = "Idle"  # Return to idle
+                        self.is_attacking = False  # Clear the attacking flag
                     else:
                         self.frame_index = 0  # Reset for other actions
 
                 self.image = self.animation_list[self.action][self.frame_index]
 
     def idle(self):
+        # Store previous action before changing it
+        previous_action = self.action
         self.action = "Idle"
-        self.frame_index = 0
+        
+        # Only reset frame index if coming from a different action
+        if previous_action != "Idle":
+            self.frame_index = 0
         self.update_time = pygame.time.get_ticks()
+        self.last_update = self.update_time - 200  # Force an immediate update
 
     def attack(self, target):
         if self.alive:
             self.action = "Attack"
             self.frame_index = 0
+            self.is_attacking = True
             self.update_time = pygame.time.get_ticks()
 
     def death(self, target):

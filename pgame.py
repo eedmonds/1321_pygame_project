@@ -1,19 +1,24 @@
-import pygame, sys, os
-import random
+import pygame, sys,os, random
 from Charactor import Character
-from HealthBar import HealthBar
+from  HealthBar import HealthBar
 
 pygame.init()
 pygame.mixer.init()
-pygame.mixer.music.load('Assets/Music/backgroundMusic.mp3')
+
+
+#Load background music
+defeat_fx = pygame.mixer.music.load('Assets/Music/backgroundMusic.mp3')
 pygame.mixer.music.play(-1) # start the music
+death_sound = pygame.mixer.Sound('Assets/Sound/death_sound.wav')
 current_enemy_index = 0  # Only this enemy will act
+
+
 # Game window setup
 BOTTOM_PANEL = 150
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 400 + BOTTOM_PANEL
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption('Adventure Arena')
+pygame.display.set_caption('Adventure')
 
 # Clock and FPS
 clock = pygame.time.Clock()
@@ -56,7 +61,6 @@ def draw_panel():
         enemy_health_bars[i].draw(e.hp)
 
     # Draw Buttons
-
     pygame.draw.rect(screen, (100, 100, 100), attack_btn)
     draw_text("Attack", font, (255, 255, 255), attack_btn.x + 10, attack_btn.y + 10)
     pygame.draw.rect(screen, (100, 100, 100), potion_btn)
@@ -88,6 +92,7 @@ def main_menu():
         draw_text("Q. Quit", font, (255, 255, 255), 320, 300)
         pygame.display.update()
 
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -111,9 +116,14 @@ wave = 1
 
 def create_enemies(wave):
     enemies = []
+    stagger_distance = 10  # Change to exactly 10 pixels as requested
     for i in range(wave):
-        enemy = Character(500 + i * 100, 260, 'Bandit', 20 + 5 * wave, 6 + wave, 1)
+        enemy = Character(730 + i * 100 + i * stagger_distance, 260, 'Bandit', 20 + 5 * wave, 6 + wave, 1)
+        # Set initial action to "Run"
+        enemy.action = "Run"
         enemies.append(enemy)
+        enemy.update()
+        enemy.action = "Idle"
     return enemies
 
 def create_enemy_health_bars():
@@ -181,10 +191,93 @@ while run:
     draw_panel()
     draw_floating_texts()
 
+    # Handle player input first
+    if player_turn:
+        player.handle_input()
+    
+    # Update player regardless of turn transition
+    player.update()
+    player.draw(screen)
+    
+    # Update and draw enemies regardless of turn transition
+    enemy_speed = 2  # Define speed for enemy movement
+    for i, enemy in enumerate(enemy_list[:]):
+        if enemy.alive:
+            print(f"Before logic: Enemy at {enemy.rect.x}, action: {enemy.action}, frame: {enemy.frame_index}")
+            if enemy.rect.x > 428:  # Move towards position 428
+                enemy.action = "Run"
+                enemy.rect.x -= enemy_speed
+            elif enemy.rect.x == 428:
+                if enemy.rect.x - enemy_speed < 428:
+                    enemy.idle()
+                    print(f"After idle(): Enemy at {enemy.rect.x}, action: {enemy.action}, frame: {enemy.frame_index}")
+                else:
+                    enemy.rect.x -= enemy_speed
+            
+            # Update and draw after all position and state changes
+            enemy.update()
+            print(f"After update(): Enemy at {enemy.rect.x}, action: {enemy.action}, frame: {enemy.frame_index}")
+            enemy.draw(screen)
+        if not enemy.alive and enemy.action == "Death":
+            if enemy.frame_index >= len(enemy.animation_list[enemy.action]):
+                enemy_list.remove(enemy)
+    
+    # Draw turn indicator (overlay) after characters are drawn
     if turn_transition_timer > 0:
+        draw_turn_indicator()
         turn_transition_timer -= 1
         pygame.display.flip()
-        continue
+        # Don't continue - let the game process events even during transition
+    
+    # Handle enemy turn when timer reaches 0
+    elif not player_turn:
+        # Move to next enemy in the list
+        if current_enemy_index < len(enemy_list):
+            enemy = enemy_list[current_enemy_index]
+            print(f"Enemy selected: {enemy.name}, alive: {enemy.alive}, action: {enemy.action}")
+            if enemy.alive:
+                # Make sure player is near enough for the enemy to attack
+                if abs(enemy.rect.x - player.rect.x) < 100:  # Check if player is within attack range
+                    enemy.attack(player)
+                    print(f"Enemy attacking. New action: {enemy.action}")
+                
+                    # Give the animation time to play before processing damage
+                    pygame.time.delay(300)  # Short delay to see the attack animation
+                
+                    damage = enemy.strength + random.randint(-3, 3)
+                    damage = max(0, damage)
+                    player.hp -= damage
+                    if player.hp <= 0:
+                        player.hp = 0
+                        player.alive = False
+                        player.animation_list[player.action] = player.death(player)
+                        pygame.display.flip()
+                        pygame.time.delay(500)
+                        if game_over_screen():
+                            selected_class = main_menu()
+                            player = Character(200, 260, selected_class, 100, 10, 3)
+                            player_health = HealthBar(screen, 100, SCREEN_HEIGHT - BOTTOM_PANEL + 40, player.hp,
+                                                  player.max_hp, animate=True)
+                            wave = 1
+                            enemy_list = create_enemies(wave)
+                            enemy_health_bars = create_enemy_health_bars()
+                            player_turn = True
+                            turn_transition_timer = 0
+                            floating_texts.clear()
+                            continue
+                    player_health.flash("damage")
+                    floating_texts.append(
+                        {'text': f'-{damage}', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (255, 0, 0),
+                         'timer': 30}
+                    )
+                player_turn = True
+                turn_transition_timer = 60
+                current_enemy_index += 1
+                if current_enemy_index >= len(enemy_list):
+                    current_enemy_index = 0
+        else:
+            player_turn = True
+            current_enemy_index = 0
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -199,14 +292,20 @@ while run:
                 for i, enemy in enumerate(enemy_list):
                     if enemy.alive and player.check_collision(enemy):
                         player.attack(enemy)
+                        # Set a flag to indicate the player is attacking
+                        player.is_attacking = True
                         damage = player.strength + random.randint(-5, 5)
                         damage = max(0, damage)
                         enemy.hp -= damage
                         if enemy.hp <= 0:
                             enemy.hp = 0
                             enemy.alive = False
-                            enemy.action = 3
-                            enemy.death(enemy)
+                            enemy.action = "Death"
+
+                            enemy.frame_index = 0
+                            enemy.update()
+                            enemy.update_time = pygame.time.get_ticks()
+                            death_sound.play()
                             if i == current_enemy_index:
                                 current_enemy_index += 1
                         enemy_health_bars[i].flash("damage")
@@ -229,51 +328,12 @@ while run:
                     player_turn = False
                     turn_transition_timer = 60
 
-    player.handle_input()
-    player.update()
-    player.draw(screen)
+    if turn_transition_timer == 0:
+        if not player_turn:
+            pass
 
-    for i, enemy in enumerate(enemy_list):
-        enemy.update()
-        enemy.draw(screen)
-
-    if not player_turn and turn_transition_timer == 0:
-        if current_enemy_index < len(enemy_list):
-            enemy = enemy_list[current_enemy_index]
-            if enemy.alive:
-                enemy.attack(player)
-                damage = enemy.strength + random.randint(-3, 3)
-                damage = max(0, damage)
-                player.hp -= damage
-                if player.hp <= 0:
-                    player.hp = 0
-                    player.alive = False
-                    pygame.display.flip()
-                    pygame.time.delay(500)
-                    if game_over_screen():
-                        selected_class = main_menu()
-                        player = Character(200, 260, selected_class, 100, 10, 3)
-                        player_health = HealthBar(screen, 100, SCREEN_HEIGHT - BOTTOM_PANEL + 40, player.hp,
-                                                  player.max_hp, animate=True)
-                        wave = 1
-                        enemy_list = create_enemies(wave)
-                        enemy_health_bars = create_enemy_health_bars()
-                        player_turn = True
-                        turn_transition_timer = 0
-                        floating_texts.clear()
-                        continue
-                player_health.flash("damage")
-                floating_texts.append(
-                    {'text': f'-{damage}', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (255, 0, 0),
-                     'timer': 30}
-                )
-            player_turn = True
-            turn_transition_timer = 60
-        else:
-            player_turn = True
-            enemy_turn_index = 0
     if all(not enemy.alive for enemy in enemy_list):
-        show_wave_complete(wave)
+        #show_wave_complete(wave)
 
         if player.potions > 0 and player.hp < player.max_hp:
             if ask_to_use_potion():
