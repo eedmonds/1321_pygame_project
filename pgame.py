@@ -7,7 +7,7 @@ pygame.mixer.init()
 
 
 #Load background music
-defeat_fx = pygame.mixer.music.load('Assets/Music/backgroundMusic.mp3')
+pygame.mixer.music.load('Assets/Music/backgroundMusic.mp3')
 pygame.mixer.music.play(-1) # start the music
 death_sound = pygame.mixer.Sound('Assets/Sound/death_sound.wav')
 current_enemy_index = 0  # Only this enemy will act
@@ -26,6 +26,8 @@ FPS = 60  # Reduce the FPS to make movements more visible
 
 # back ground images and display panel assets
 background_img = pygame.image.load('img/Background/background.png').convert_alpha()
+main_img = pygame.image.load('img/Main/MainScreen.png').convert_alpha()
+#boss_background_img = pygame.image.load('img/Background/boss_background.png').convert_alpha()  # Add boss background
 panel_img = pygame.image.load('img/Icons/panel.png').convert_alpha()
 
 # Fonts
@@ -48,7 +50,10 @@ def draw_text(text, font, text_col, x, y):
 
 #function to for drawing background  to screen
 def draw_bg():
-    screen.blit(background_img, (0, 0))
+    if is_boss_level:
+        screen.blit(boss_background_img, (0, 0))
+    else:
+        screen.blit(background_img, (0, 0))
 
 # function to drawing background images to screen
 def draw_panel():
@@ -83,12 +88,13 @@ def draw_floating_texts():
 def main_menu():
     menu = True
     while menu:
-        screen.fill((0, 0, 0))
+        screen.blit(main_img, (0, 0))
         draw_text("Choose Your Hero:", font, (255, 255, 255), 300, 100)
         draw_text("1. Knight", font, (255, 255, 255), 320, 150)
         draw_text("2. Wizard", font, (255, 255, 255), 320, 200)
         draw_text("3. Thief", font, (255, 255, 255), 320, 250)
         draw_text("Q. Quit", font, (255, 255, 255), 320, 300)
+
         pygame.display.update()
 
 
@@ -113,6 +119,7 @@ player = Character(200, 260, selected_class, 200, 10, 3, True)
 
 wave = 1
 stagger_distance = 0
+is_boss_level = False  # Track if we're on boss level
 def create_enemies(wave):
     enemies = []
     for i in range(wave):
@@ -121,6 +128,12 @@ def create_enemies(wave):
         enemy.update()
 
     return enemies
+
+def create_boss():
+    # Create a powerful boss with higher stats
+    boss = Boss(730, 260, 'Dragon', 300, 15, 0, True)
+    boss.update()
+    return [boss]  # Return as a list to be compatible with enemy_list
 
 def create_enemy_health_bars():
     bars = []
@@ -157,6 +170,16 @@ def show_wave_complete(wave_num):
     while timer > 0:
         screen.fill((0, 0, 0))
         draw_text(f"Wave {wave_num} Complete!", font, (255, 255, 0), SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 - 20)
+        pygame.display.update()
+        timer -= 1
+        clock.tick(FPS)
+
+def show_boss_transition():
+    timer = 180  # Show for 3 seconds at 60 FPS
+    while timer > 0:
+        screen.fill((0, 0, 0))
+        draw_text("Prepare for Boss Battle!", font, (255, 0, 0), SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 - 20)
+        draw_text("A powerful enemy approaches...", font, (255, 200, 0), SCREEN_WIDTH // 2 - 160, SCREEN_HEIGHT // 2 + 20)
         pygame.display.update()
         timer -= 1
         clock.tick(FPS)
@@ -281,7 +304,7 @@ while run:
                 player_turn = True
                 current_enemy_index += 1
                 if current_enemy_index >= len(enemy_list):
-                    current_enemy_index = 0
+                    current_enemy_index
         else:
             player_turn = True
             current_enemy_index = 0
@@ -354,12 +377,22 @@ while run:
                 floating_texts.append(
                     {'text': '+50', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (0, 255, 0), 'timer': 30})
 
-        if wave < 2:
+        # After completing wave 2, move to boss level
+        if wave == 2 and not is_boss_level:
+            wave += 1
+            is_boss_level = True
+            show_boss_transition()
+            enemy_list = create_boss()
+            enemy_health_bars = create_enemy_health_bars()
+            player_turn = True
+            # Add a potion as a reward for reaching the boss
+            player.potions += 1
+            floating_texts.append({'text': '+1 Potion', 'x': player.rect.x, 'y': player.rect.y - 40, 'color': (0, 255, 255), 'timer': 60})
+        elif wave < 2:
             wave += 1
             enemy_list = create_enemies(wave)
             enemy_health_bars = create_enemy_health_bars()
             player_turn = True
-
     pygame.display.flip()
 #stop the music
 pygame.mixer.music.stop()
