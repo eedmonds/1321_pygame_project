@@ -1,6 +1,7 @@
 import pygame, sys,os, random
 from Charactor import Character
 from  HealthBar import HealthBar
+from Boss import Boss
 
 pygame.init()
 pygame.mixer.init()
@@ -27,7 +28,7 @@ FPS = 60  # Reduce the FPS to make movements more visible
 # back ground images and display panel assets
 background_img = pygame.image.load('img/Background/background.png').convert_alpha()
 main_img = pygame.image.load('img/Main/MainScreen.png').convert_alpha()
-#boss_background_img = pygame.image.load('img/Background/boss_background.png').convert_alpha()  # Add boss background
+boss_background_img = pygame.image.load('img/Background/boss_background.png').convert_alpha()  # Add boss background
 panel_img = pygame.image.load('img/Icons/panel.png').convert_alpha()
 
 # Fonts
@@ -131,8 +132,8 @@ def create_enemies(wave):
 
 def create_boss():
     # Create a powerful boss with higher stats
-    boss = Boss(730, 260, 'Dragon', 300, 15, 0, True)
-    boss.update()
+    boss = Boss(600, 300, "Boss", 100, 12, 0, True)
+    #boss.image = boss.animations["idle"][0]# ensure a starting image is set
     return [boss]  # Return as a list to be compatible with enemy_list
 
 def create_enemy_health_bars():
@@ -201,6 +202,23 @@ def game_over_screen():
                 elif event.key == pygame.K_q:
                     pygame.quit()
                     exit()
+def win_screen():
+    while True:
+        screen.fill((0, 0, 0))
+        draw_text("You Win!", font, (0, 255, 0), SCREEN_WIDTH // 2 - 60, SCREEN_HEIGHT // 2 - 60)
+        draw_text("Press R to Restart or Q to Quit", font, (255, 255, 255), SCREEN_WIDTH // 2 - 180, SCREEN_HEIGHT // 2)
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    return True  # Restart game
+                elif event.key == pygame.K_q:
+                    pygame.quit()
+                    exit()
 
 # Main Game Loop
 run = True
@@ -213,17 +231,17 @@ while run:
     # Handle player input first
     if player.alive:
         player.handle_input()
-    
+
     # Update player regardless of turn transition
     player.update()
     player.draw(screen)
-    
+
     # Update and draw enemies
     enemy_speed = 2  # Slower movement for smoother animation
     for i, enemy in enumerate(enemy_list[:]):  # Use copy of list to safely remove items
         # Set stagger distance consistently
         stagger_distance = i * 50  # Give each enemy a different position
-        
+
         if enemy.alive:
             # Enemy movement logic
             if enemy.rect.x > (428 + stagger_distance):  # Move towards position 428
@@ -233,26 +251,27 @@ while run:
                 # Set enemy to idle when reaching its position
                 enemy.rect.x = 428 + stagger_distance  # Ensure exact position
                 enemy.idle()
-            
+
             # Update and draw after all position and state changes
             enemy.update()
             enemy.draw(screen)
 
 
 
-    
+
     # Draw turn indicator (overlay) after characters are drawn
 
 
 
         pygame.display.flip()
         # Don't continue - let the game process events even during transition
-    
+
     # Handle enemy turn when timer reaches 0
 
         # Move to next enemy in the list
         if current_enemy_index < len(enemy_list):
             enemy = enemy_list[current_enemy_index]
+            print(current_enemy_index)
             print(f"Enemy selected: {enemy.name}, alive: {enemy.alive}, action: {enemy.action}")
             if enemy.alive:
                 # Make sure player is near enough for the enemy to attack
@@ -263,10 +282,10 @@ while run:
                     enemy.draw(screen)
 
                     print(f"Enemy attacking. New action: {enemy.action}")
-                
+
                     # Give the animation time to play before processing damage
                       # Short delay to see the attack animation
-                
+
                     damage = enemy.strength + random.randint(-5, 100)
                     damage = max(0, damage)
                     player.hp -= damage
@@ -303,11 +322,11 @@ while run:
                     )
                 player_turn = True
                 current_enemy_index += 1
-                if current_enemy_index >= len(enemy_list):
-                    current_enemy_index
+
+
         else:
             player_turn = True
-            current_enemy_index = 0
+
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -330,10 +349,13 @@ while run:
                         if enemy.hp <= 0:
                             enemy.hp = 0
                             enemy.alive = False
-                            enemy.action = "Death"
+                            if enemy.name == "Boss":
+                                enemy.play_action("Death")
+                            else:
+                                enemy.action = "Death"
 
                             enemy.frame_index = 0
-                            for _ in range(len(enemy.animation_list[enemy.action])): 
+                            for _ in range(len(enemy.animation_list[enemy.action])):
                                 enemy.update()  # This will already increment frame_index internally
                                 enemy.draw(screen)
                                 pygame.display.flip()
@@ -361,38 +383,36 @@ while run:
                     floating_texts.append({'text': '+20', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (0, 255, 0), 'timer': 30})
                     player_turn = False
 
+        if all(not enemy.alive for enemy in enemy_list):
+            if is_boss_level:
+                if win_screen():  # 🎉 Show win screen and restart if chosen
+                    selected_class = main_menu()
+                    player = Character(200, 260, selected_class, 100, 10, 3, True)
+                    player_health = HealthBar(screen, 100, SCREEN_HEIGHT - BOTTOM_PANEL + 40, player.hp, player.max_hp,
+                                              animate=True)
+
+                    wave = 1
+                    is_boss_level = False
+                    enemy_list = create_enemies(wave)
+                    enemy_health_bars = create_enemy_health_bars()
+                    floating_texts.clear()
+                    current_enemy_index = 0
+                    continue
+            else:
+                show_wave_complete(wave)
+                wave += 1
+                if wave == 3:
+                    is_boss_level = True
+                    show_boss_transition()
+                    enemy_list = create_boss()
+                else:
+                    enemy_list = create_enemies(wave)
+
+                enemy_health_bars = create_enemy_health_bars()
+                player_turn = True
+                current_enemy_index = 0
 
 
-
-    if all(not enemy.alive for enemy in enemy_list):
-        #show_wave_complete(wave)
-
-        if player.potions > 0 and player.hp < player.max_hp:
-            if ask_to_use_potion():
-                player.hp += 50
-                if player.hp > player.max_hp:
-                    player.hp = player.max_hp
-                player.potions -= 1
-                player_health.flash("heal")
-                floating_texts.append(
-                    {'text': '+50', 'x': player.rect.x, 'y': player.rect.y - 20, 'color': (0, 255, 0), 'timer': 30})
-
-        # After completing wave 2, move to boss level
-        if wave == 2 and not is_boss_level:
-            wave += 1
-            is_boss_level = True
-            show_boss_transition()
-            enemy_list = create_boss()
-            enemy_health_bars = create_enemy_health_bars()
-            player_turn = True
-            # Add a potion as a reward for reaching the boss
-            player.potions += 1
-            floating_texts.append({'text': '+1 Potion', 'x': player.rect.x, 'y': player.rect.y - 40, 'color': (0, 255, 255), 'timer': 60})
-        elif wave < 2:
-            wave += 1
-            enemy_list = create_enemies(wave)
-            enemy_health_bars = create_enemy_health_bars()
-            player_turn = True
     pygame.display.flip()
 #stop the music
 pygame.mixer.music.stop()
