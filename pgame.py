@@ -43,6 +43,7 @@ floating_texts = []
 # UI button rectangles
 attack_btn = pygame.Rect(100, SCREEN_HEIGHT - 85, 100, 40)
 potion_btn = pygame.Rect(260, SCREEN_HEIGHT - 85, 100, 40)
+start_btn = pygame.Rect(333, SCREEN_HEIGHT - 290, 136, 40)
 
 # Draw functions
 def draw_text(text, font, text_col, x, y):
@@ -90,11 +91,8 @@ def main_menu():
     menu = True
     while menu:
         screen.blit(main_img, (0, 0))
-        draw_text("Choose Your Hero:", font, (255, 255, 255), 300, 100)
-        draw_text("1. Knight", font, (255, 255, 255), 320, 150)
-        draw_text("2. Wizard", font, (255, 255, 255), 320, 200)
-        draw_text("3. Thief", font, (255, 255, 255), 320, 250)
-        draw_text("Q. Quit", font, (255, 255, 255), 320, 300)
+        pygame.draw.rect(screen, (100, 100, 100), start_btn)
+        draw_text("Press to start", font, (255, 255, 255),334,262)
 
         pygame.display.update()
 
@@ -104,15 +102,13 @@ def main_menu():
                 pygame.quit()
                 exit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_1:
-                    return 'Knight'
-                elif event.key == pygame.K_2:
-                    return 'Wizard'
-                elif event.key == pygame.K_3:
-                    return 'Thief'
-                elif event.key == pygame.K_q:
+                if event.key == pygame.K_q:
                     pygame.quit()
                     exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                if start_btn.collidepoint(mouse_pos):
+                    return 'Knight'
 
 
 selected_class = main_menu()
